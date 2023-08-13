@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
+const DB_URL  = "postgresql://root:root@localhost:5432/cocktail_db"
+
 
 type Cocktail struct {
 	ID int `json:id`
@@ -27,6 +30,11 @@ type Ingredient struct {
 
 var pool *pgxpool.Pool
 
+func buildIngredientsStr(ingredient []string) string {
+	tmp := strings.Join(ingredient, ", ")
+	return "'{" + tmp + "}'"
+}
+
 func getAllIngredients() []Ingredient {
 	fmt.Println("getAllIngredients")
 	rows, err := pool.Query(context.Background(), "select * from ingredients;")
@@ -34,7 +42,6 @@ func getAllIngredients() []Ingredient {
 		fmt.Printf("failed to getAllIngredients")
 		return nil
 	}
-
 	ingredients := []Ingredient{}
 	for rows.Next(){
 		var ing Ingredient
@@ -49,9 +56,10 @@ func getAllIngredients() []Ingredient {
 	return ingredients
 }
 
-func getAllCocktails() []Cocktail {
+func computeCraftableCocktail(strArr []string) []Cocktail {
 	fmt.Println("getAllCocktails")
-	rows, err := pool.Query(context.Background(), "select * from cocktails;")
+	lisStr := buildIngredientsStr(strArr)
+	rows, err := pool.Query(context.Background(), "select * from cocktails as c where c.ingredients <@ " + lisStr + ";")
 	if err != nil {
 		fmt.Printf("failed to getAllCocktails")
 		return nil
@@ -77,9 +85,11 @@ func responseAllIngredients(ctx *gin.Context) {
 	ctx.IndentedJSON(http.StatusOK, ingredients)
 }
 
-func responseAllCocktails(ctx *gin.Context) {
+func responseCraftableCocktails(ctx *gin.Context) {
 	var cocktails []Cocktail
-	cocktails = getAllCocktails()
+	querys := ctx.Request.URL.Query()
+	availableIngredients := querys["ingredients[]"]
+	cocktails = computeCraftableCocktail(availableIngredients)
 	ctx.IndentedJSON(http.StatusOK, cocktails)
 }
 
@@ -108,6 +118,6 @@ func main() {
 
 	router := gin.Default()
 	router.GET("/ingredients", responseAllIngredients)
-	router.GET("/cocktails", responseAllCocktails)
+	router.GET("/cocktails", responseCraftableCocktails)
 	router.Run("localhost:9090")
 }
