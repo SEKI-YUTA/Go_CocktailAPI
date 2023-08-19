@@ -1,3 +1,7 @@
+データベースを
+`docker-compose up`で立ち上げる
+[DocekrCompose](https://github.com/SEKI-YUTA/Docker_DockerComposeArchive/tree/master/postgreSQL_CocktailDB)
+
 ## ENDPOINTS
 
 -   /ingredients
